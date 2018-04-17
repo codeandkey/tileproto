@@ -15,7 +15,7 @@
 #include "timer.h"
 
 #define BLOCKS 4
-#define CHUNKSIZE 64
+#define CHUNKSIZE 32
 #define BLOCKPIXELS 16
 #define FONTSIZE 21
 
@@ -40,7 +40,7 @@ typedef struct _live_chunk {
 
 static unsigned pretex_init = 0;
 static unsigned pretex_texlist[BLOCKS] = {0};
-static unsigned chunk_vbo, chunk_vao, block_vbo, block_vao;
+static unsigned chunk_vbo, chunk_vao, block_vbo, block_vao, line_tex;
 static live_chunk* chunk_list, *chunk_list_tail;
 static float camerax, cameray;
 static float cxspeed, cyspeed;
@@ -57,6 +57,9 @@ void demo_pretex_free_chunk(live_chunk* c);
 
 void demo_pretex_request_chunk(int cx, int cy);
 int demo_pretex_chunk_loaded(int cx, int cy);
+void demo_pretex_render_chunk_boundaries(void);
+
+unsigned demo_pretex_load_tex(const char* tex);
 
 int demo_pretex_render(void) {
 	if (!pretex_init) {
@@ -108,7 +111,9 @@ int demo_pretex_render(void) {
 	glUseProgram(prg);
 
 	for (int cx = ((int) camerax / (int) CHUNKSIZE); cx * CHUNKSIZE <= camerax + CAMERASIZE*RATIO; ++cx) {
+		if (cx < 0) continue;
 		for (int cy = ((int) cameray / (int) CHUNKSIZE); cy * CHUNKSIZE <= cameray + CAMERASIZE; ++cy) {
+			if (cy < 0) continue;
 			demo_pretex_request_chunk(cx, cy);
 		}
 	}
@@ -126,6 +131,8 @@ int demo_pretex_render(void) {
 		demo_pretex_render_chunk(c);
 		c = c->next;
 	}
+
+	demo_pretex_render_chunk_boundaries();
 
 	fps_count++;
 
@@ -242,6 +249,11 @@ int demo_pretex_init(void) {
 	tk_font_set_col(dbg_font_good, 1.0f, 1.0f, 1.0f, 1.0f);
 	tk_font_set_col(dbg_font_warn, 1.0f, 0.5f, 0.0f, 1.0f);
 	tk_font_set_col(dbg_font_bad, 1.0f, 0.2f, 0.0f, 1.0f);
+
+	line_tex = demo_pretex_load_tex("res/line.png");
+
+	if (!line_tex) return 1;
+
 	return 0;
 }
 
@@ -399,4 +411,62 @@ void demo_pretex_request_chunk(int cx, int cy) {
 		chunk_list = c;
 	}
 	chunk_list_tail = c;
+}
+
+void demo_pretex_render_chunk_boundaries(void) {
+	/* render some lines around */
+	/* don't need much here */
+
+	glLineWidth(1.5f);
+	mat4x4_identity(model);
+	update_mats();
+
+	for (int cx = ((int) camerax / (int) CHUNKSIZE); cx*CHUNKSIZE < camerax+CAMERASIZE*RATIO; ++cx) {
+		float verts[] = { cx*CHUNKSIZE, cameray, 0.5f, 0.5f, cx*CHUNKSIZE, cameray+CAMERASIZE, 0.5f, 0.5f };
+		unsigned vao;
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*4, verts);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float)*4, verts+2);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glBindTexture(GL_TEXTURE_2D, line_tex);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+
+	for (int cy = ((int) cameray / (int) CHUNKSIZE); cy*CHUNKSIZE < cameray+CAMERASIZE; ++cy) {
+		float verts[] = { camerax, cy*CHUNKSIZE, 0.5f, 0.5f, camerax+CAMERASIZE*RATIO, cy*CHUNKSIZE, 0.5f, 0.5f };
+		unsigned vao;
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*4, verts);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float)*4, verts+2);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glBindTexture(GL_TEXTURE_2D, line_tex);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
+}
+
+unsigned demo_pretex_load_tex(const char* filename) {
+	int w, h, rw;
+	unsigned output;
+	unsigned char* stbd = stbi_load(filename, &w, &h, NULL, 4);
+	if (!stbd) {
+		printf("tex fail: %s\n", filename);
+		return 0;
+	}
+	unsigned char* next = malloc(w*h*4);
+	rw = 4*w;
+	for (int j = 0; j < h; ++j) {
+		memcpy(next + j * rw, stbd + (h-1) * rw - j*rw, rw);
+	}
+	glGenTextures(1, &output);
+	glBindTexture(GL_TEXTURE_2D, output);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, next);
+	free(next);
+	stbi_image_free(stbd);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	return output;
 }

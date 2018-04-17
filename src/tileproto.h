@@ -16,4 +16,4 @@ void update_mats(void);
 #define WIDTH 1366
 #define HEIGHT 768
 #define RATIO ((float) WIDTH / (float) HEIGHT)
-#define CAMERASIZE 15.0f
+#define CAMERASIZE 32.0f
