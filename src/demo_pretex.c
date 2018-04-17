@@ -151,6 +151,7 @@ int demo_pretex_render(void) {
 	if (rc_count > 5 || ld_count > 2) dbg_font_chunkstat = dbg_font_bad;
 
 	tk_font_render(dbg_font_chunkstat, 10, HEIGHT - FONTSIZE*3 - 25, 0, "rendered %d, compiled %d, freed %d\n", rc_count, ld_count, fr_count);
+	tk_font_render(dbg_font_good, 10, 10, 0, "controls: arrow keys to move");
 
 	rc_count = ld_count = fr_count = 0;
 	return 0;
