@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -g -I/usr/include/libxml2
+CFLAGS = -std=c99 -Wall -g
 LDFLAGS = -ldl -lm -lglfw -lGL
 
 OUTPUT = tileproto
