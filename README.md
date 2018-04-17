@@ -1,10 +1,10 @@
 ![alt text](https://github.com/molecuul/tileproto/raw/master/screen.png "screenshot")
 ### tileproto
 #### a proof-of-concept high performance tile rendering engine
-tileproto uses an experimental method to render massive tiled worlds at ridiculous speeds.
-The primary concept used is dynamic compilation of tiled worlds into large chunk textures which can be rendered layer-by-layer in a single pass.
-This dramatically reduces draw calls while increasing RAM usage by L*N^2*T bytes per active chunk, where L is the layer count, N is the chunk width, and T is the tile texture size in bytes.
-Also, as it is costly to store compiled chunks on disk they are compiled dynamically as required. This is expensive and preferably performed in another thread.
+tileproto is a collection of some demos of technique for rendering and computing with 2D voxel-based worlds.
+#### chunk pretexturing demo
+The chunk pretexturing demo implements tile rendering by splitting the world into discrete square chunks of tiles. When a chunk needs to be displayed it is "compiled" and rendered into a large static texture. The large texture is then reused to render the entire chunk with one quad instead of rendering tiles independently as their own quads. This allows all chunks to render with the same speed regardless of tile complexity. The downfall and overhead of this method is that when a chunk has to be compiled it injects all of the draws for contained tiles into the current frame, causing a spike in API calls and a stutter in the frame if the GPU is not fast enough.
 
+Variable chunk sizes and culling/threading methods can be tweaked for maximum performance.
 #### usage
-Use the arrow keys to move the camera around. Chunks are generated randomly as you move towards them.
+Each demo has its own controls which are displayed on the screen.
