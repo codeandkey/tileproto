@@ -9,7 +9,7 @@ extern GLFWwindow* wh;
 
 extern float camera[4]; /* x, y, width, height */
 extern mat4x4 model, view, proj;
-extern unsigned loc_xform;
+extern unsigned loc_xform, prg;
 
 void update_mats(void);
 

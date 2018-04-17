@@ -11,10 +11,13 @@
 #include "stb_image.h"
 #include "tileproto.h"
 #include "linmath.h"
+#include "text.h"
+#include "timer.h"
 
 #define BLOCKS 4
-#define CHUNKSIZE 32
+#define CHUNKSIZE 64
 #define BLOCKPIXELS 16
+#define FONTSIZE 21
 
 #define HACCEL 0.08f
 #define HMAX 0.8f
@@ -41,6 +44,11 @@ static unsigned chunk_vbo, chunk_vao, block_vbo, block_vao;
 static live_chunk* chunk_list, *chunk_list_tail;
 static float camerax, cameray;
 static float cxspeed, cyspeed;
+static float fps;
+static unsigned fps_count, rc_count, ld_count, fr_count;
+static tp fps_tp;
+
+static tk_font* dbg_font_good, *dbg_font_bad, *dbg_font_warn;
 
 void demo_pretex_query_wdata(int cx, int cy, uint8_t* data); /* cx, cy: chunk numbers */
 live_chunk* demo_pretex_compile_chunk(int cx, int cy);
@@ -97,8 +105,10 @@ int demo_pretex_render(void) {
 
 	mat4x4_translate(view, -camerax, -cameray, 0.0f);
 
-	for (int cx = camerax/CHUNKSIZE - 1; cx * CHUNKSIZE <= camerax + CAMERASIZE*RATIO; ++cx) {
-		for (int cy = cameray / CHUNKSIZE - 1; cy * CHUNKSIZE <= cameray + CAMERASIZE; ++cy) {
+	glUseProgram(prg);
+
+	for (int cx = ((int) camerax / (int) CHUNKSIZE); cx * CHUNKSIZE <= camerax + CAMERASIZE*RATIO; ++cx) {
+		for (int cy = ((int) cameray / (int) CHUNKSIZE); cy * CHUNKSIZE <= cameray + CAMERASIZE; ++cy) {
 			demo_pretex_request_chunk(cx, cy);
 		}
 	}
@@ -117,6 +127,32 @@ int demo_pretex_render(void) {
 		c = c->next;
 	}
 
+	fps_count++;
+
+	const int g = 4;
+
+	if (timer_diff(fps_tp) >= 1000.0f / g) {
+		fps = fps_count / (timer_diff(fps_tp) / 1000.0f);
+		fps_tp = timer_get();
+		fps_count = 0;
+	}
+
+	tk_font* dbg_font_fps = dbg_font_good;
+
+	if (fps < 60) dbg_font_fps = dbg_font_warn;
+	if (fps < 30) dbg_font_fps = dbg_font_bad;
+
+	tk_font_render(dbg_font_good, 10, HEIGHT - 25, 0, "Chunk pretexturing demo");
+	tk_font_render(dbg_font_fps, 10, HEIGHT - FONTSIZE - 25, 0, "FPS [g=%d]: %.2f\n", g, fps);
+	tk_font_render(dbg_font_good, 10, HEIGHT - FONTSIZE*2 - 25, 0, "chunksize=%d ppb=%d cx=%.2f cy=%.2f |cvel|=%.2f", CHUNKSIZE, BLOCKPIXELS, camerax, cameray, sqrt(cxspeed*cxspeed+cyspeed*cyspeed));
+
+	tk_font* dbg_font_chunkstat = dbg_font_good;
+	if (rc_count > 2 || ld_count > 1) dbg_font_chunkstat = dbg_font_warn;
+	if (rc_count > 5 || ld_count > 2) dbg_font_chunkstat = dbg_font_bad;
+
+	tk_font_render(dbg_font_chunkstat, 10, HEIGHT - FONTSIZE*3 - 25, 0, "rendered %d, compiled %d, freed %d\n", rc_count, ld_count, fr_count);
+
+	rc_count = ld_count = fr_count = 0;
 	return 0;
 }
 
@@ -126,6 +162,8 @@ int demo_pretex_init(void) {
 	printf("demo_pretex: chunk size = %dx%d blocks\n", CHUNKSIZE, CHUNKSIZE);
 	printf("demo_pretex: selecting chunk data from %d distinct blocktypes\n", BLOCKS);
 	printf("demo_pretex: loading block textures");
+
+	fps_tp = timer_get();
 
 	glGenTextures(BLOCKS - 1, pretex_texlist + 1);
 
@@ -195,6 +233,14 @@ int demo_pretex_init(void) {
 
 	glEnableVertexAttribArray(0); /* all VAOs use this so we don't really need to worry about the state too much */
 	glEnableVertexAttribArray(1);
+
+	dbg_font_good = tk_font_init("res/debug.ttf", FONTSIZE);
+	dbg_font_warn = tk_font_init("res/debug.ttf", FONTSIZE);
+	dbg_font_bad = tk_font_init("res/debug.ttf", FONTSIZE);
+
+	tk_font_set_col(dbg_font_good, 1.0f, 1.0f, 1.0f, 1.0f);
+	tk_font_set_col(dbg_font_warn, 1.0f, 0.5f, 0.0f, 1.0f);
+	tk_font_set_col(dbg_font_bad, 1.0f, 0.2f, 0.0f, 1.0f);
 	return 0;
 }
 
@@ -208,6 +254,14 @@ void demo_pretex_free(void) {
 	glDeleteVertexArrays(1, &chunk_vao);
 
 	glDeleteTextures(BLOCKS - 1, pretex_texlist + 1);
+
+	tk_font_free(dbg_font_good);
+	tk_font_free(dbg_font_warn);
+	tk_font_free(dbg_font_bad);
+
+	dbg_font_good = NULL;
+	dbg_font_warn = NULL;
+	dbg_font_bad = NULL;
 }
 
 void demo_pretex_query_wdata(int cx, int cy, uint8_t* dest) {
@@ -225,6 +279,8 @@ void demo_pretex_render_chunk(live_chunk* c) {
 	/* this is fortunately rather straightforward.
 	 * we translate the chunk VBO over and render with the live chunk texture */
 
+	rc_count++;
+
 	mat4x4_translate(model, c->cx * CHUNKSIZE, c->cy * CHUNKSIZE, 0.0f);
 	update_mats();
 	glBindVertexArray(chunk_vao);
@@ -234,6 +290,8 @@ void demo_pretex_render_chunk(live_chunk* c) {
 
 live_chunk* demo_pretex_compile_chunk(int cx, int cy) {
 	live_chunk* output = malloc(sizeof *output);
+
+	ld_count++;
 
 	output->cx = cx;
 	output->cy = cy;
@@ -318,6 +376,7 @@ void demo_pretex_free_chunk(live_chunk* c) {
 	}
 
 	free(c);
+	fr_count++;
 }
 
 int demo_pretex_chunk_loaded(int cx, int cy) {

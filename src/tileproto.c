@@ -89,6 +89,8 @@ int main(int argc, char** argv) {
 		if (glfwGetKey(wh, GLFW_KEY_ESCAPE)) break;
 		glClear(GL_COLOR_BUFFER_BIT);
 
+		glUseProgram(prg);
+
 		if (demo_pretex_render()) break;
 		glfwSwapBuffers(wh);
 	}

@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -g
-LDFLAGS = -ldl -lm -lglfw -lGL
+CFLAGS = -std=gnu99 -Wall -g -I/usr/include/freetype2
+LDFLAGS = -ldl -lm -lglfw -lGL -lfreetype
 
 OUTPUT = tileproto
 
