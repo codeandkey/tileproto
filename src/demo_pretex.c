@@ -110,9 +110,9 @@ int demo_pretex_render(void) {
 
 	glUseProgram(prg);
 
-	for (int cx = ((int) camerax / (int) CHUNKSIZE); cx * CHUNKSIZE <= camerax + CAMERASIZE*RATIO; ++cx) {
+	for (int cx = ((int) camerax / (int) CHUNKSIZE); cx * CHUNKSIZE < camerax + CAMERASIZE*RATIO; ++cx) {
 		if (cx < 0) continue;
-		for (int cy = ((int) cameray / (int) CHUNKSIZE); cy * CHUNKSIZE <= cameray + CAMERASIZE; ++cy) {
+		for (int cy = ((int) cameray / (int) CHUNKSIZE); cy * CHUNKSIZE < cameray + CAMERASIZE; ++cy) {
 			if (cy < 0) continue;
 			demo_pretex_request_chunk(cx, cy);
 		}
